@@ -3,7 +3,7 @@ import akka.event.LoggingReceive
 
 import scala.concurrent.duration._
 
-class Auction(minPrice: BigInt) extends Actor{
+class Auction extends Actor{
   import Message._
   val system = akka.actor.ActorSystem("system")
   import system.dispatcher
@@ -14,14 +14,13 @@ class Auction(minPrice: BigInt) extends Actor{
     self ! BidTimer
   }
 
-  def Created : Receive = LoggingReceive {
+  def Created : Receive =  {
     case Bid(amount) if amount > currentPrice => {
       currentPrice = amount
       buyer = sender
-      sender ! Bidded
       context become Activated
     }
-    case Bid(amount) => sender ! CurrentPrice(currentPrice)
+    case Bid(amount) => sender ! Current(currentPrice, buyer)
     case BidTimer => {
       system.scheduler.scheduleOnce(10 second){
         self ! DeleteTimer
@@ -30,13 +29,13 @@ class Auction(minPrice: BigInt) extends Actor{
     }
   }
 
-  def Activated : Receive = LoggingReceive {
+  def Activated : Receive =  {
     case Bid(amount) if amount > currentPrice => {
       currentPrice = amount
+      buyer ! Current(amount, sender)
       buyer = sender
-      sender ! Bidded
     }
-    case Bid(amount) => sender ! CurrentPrice(currentPrice)
+    case Bid(amount) => sender ! Current(currentPrice, buyer)
     case BidTimer => {
 
       system.scheduler.scheduleOnce(10 second){
@@ -45,15 +44,21 @@ class Auction(minPrice: BigInt) extends Actor{
       }
       context become Sold
     }
+    case DeleteTimer => {}
   }
 
   def Ignored : Receive = LoggingReceive {
-    case Relist => {
+    case Bid(amount) if amount > currentPrice => {
+      currentPrice = amount
+      buyer ! Current(amount, sender)
+      buyer = sender
       system.scheduler.scheduleOnce(10 second){
-        self ! DeleteTimer
+        self ! BidTimer
       }
-      context become Created
+      context become Activated
     }
+    case Bid(amount) => sender ! Current(currentPrice, buyer)
+
     case DeleteTimer => {
       context.system.terminate
     }
@@ -71,20 +76,21 @@ class Auction(minPrice: BigInt) extends Actor{
 
 object Message {
   //inside auction messages:
-  case object Bidded
-  case object Relist
+
   case object BidTimer
   case object DeleteTimer
 
   //buyer to auction messages:
+
   case class Bid(amount: BigInt){
     require(amount > 0)
   }
+
   //auction to buyer messages:
-  case class CurrentPrice(amount: BigInt){
+
+  case class Current(amount: BigInt, buyer: ActorRef){
     require(amount > 0)
   }
 
   case class AuctionDone(winner: ActorRef, amount: BigInt)
-
 }
