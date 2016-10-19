@@ -1,96 +1,101 @@
-import akka.actor.{Actor, ActorRef}
-import akka.event.LoggingReceive
+import akka.actor.{ActorRef, FSM}
 
 import scala.concurrent.duration._
 
-class Auction extends Actor{
+sealed trait State
+
+case object Created extends State
+
+case object Activated extends State
+
+case object Ignored extends State
+
+case object Sold extends State
+
+sealed trait Data
+
+case class AuctionData(buyer: ActorRef, currentPrice: BigInt) extends Data
+
+case object Uninitialized extends Data
+
+class Auction extends FSM[State, Data] {
+
   import Message._
-  val system = akka.actor.ActorSystem("system")
-  import system.dispatcher
-  var currentPrice = 0 : BigInt
-  var buyer = self
 
-  system.scheduler.scheduleOnce(10 seconds){
-    self ! BidTimer
-  }
+  startWith(Created, AuctionData(self, 0))
 
-  def Created : Receive =  {
-    case Bid(amount) if amount > currentPrice => {
-      currentPrice = amount
-      buyer = sender
-      context become Activated
+
+  when(Created) {
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
+      goto(Activated) using AuctionData(sender, amount)
     }
-    case Bid(amount) => sender ! Current(currentPrice, buyer)
-    case BidTimer => {
-      system.scheduler.scheduleOnce(5 seconds){
-        self ! DeleteTimer
-      }
-      context become Ignored
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount <= currentPrice => {
+      sender ! Current(currentPrice, buyer)
+      stay
+    }
+    case Event(BidTimer, _) => {
+      goto(Ignored)
     }
   }
-
-  def Activated : Receive =  {
-    case Bid(amount) if amount > currentPrice => {
-      currentPrice = amount
+  when(Activated) {
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
       buyer ! Current(amount, sender)
-      buyer = sender
+      stay using AuctionData(sender, amount)
     }
-    case Bid(amount) => sender ! Current(currentPrice, buyer)
-    case BidTimer => {
-
-      system.scheduler.scheduleOnce(10 seconds){
-        buyer ! AuctionDone(buyer, currentPrice)
-        self ! DeleteTimer
-      }
-      context become Sold
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount <= currentPrice => {
+      sender ! Current(currentPrice, buyer)
+      stay
     }
-    case DeleteTimer => {}
+    case Event(BidTimer, AuctionData(buyer, currentPrice)) => {
+      buyer ! AuctionDone(buyer, currentPrice)
+      goto(Sold)
+    }
+    case Event(DeleteTimer, _) => stay
   }
 
-  def Ignored : Receive = LoggingReceive {
-    case Bid(amount) if amount > currentPrice => {
-      currentPrice = amount
+  when(Ignored) {
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
       buyer ! Current(amount, sender)
-      buyer = sender
-      system.scheduler.scheduleOnce(10 seconds){
-        self ! BidTimer
-      }
-      context become Activated
+      goto(Activated) using AuctionData(sender, amount)
     }
-    case Bid(amount) => sender ! Current(currentPrice, buyer)
-
-    case DeleteTimer => {
-      context stop self
-    }
+    case Event(Bid(amount), AuctionData(buyer, currentPrice)) => sender ! Current(currentPrice, buyer); stay
+    case Event(DeleteTimer, _) => println("Auction is dead!"); stop
+  }
+  when(Sold) {
+    case Event(DeleteTimer, _) => println("Auction is sold!"); stop
   }
 
-  def Sold : Receive = LoggingReceive {
-    case DeleteTimer => {
-      context stop self
-    }
+  onTransition {
+    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds)
+    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds)
+    case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds)
+    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer")
   }
 
-  override def receive = Created
+  initialize()
 }
 
 
 object Message {
+
   //inside auction messages:
 
   case object BidTimer
+
   case object DeleteTimer
 
   //buyer to auction messages:
 
-  case class Bid(amount: BigInt){
+  final case class Bid(amount: BigInt) {
     require(amount > 0)
   }
 
   //auction to buyer messages:
 
-  case class Current(amount: BigInt, buyer: ActorRef){
+  final case class Current(amount: BigInt, buyer: ActorRef) {
     require(amount > 0)
   }
 
-  case class AuctionDone(winner: ActorRef, amount: BigInt)
+  final case class AuctionDone(winner: ActorRef, amount: BigInt)
+
 }
