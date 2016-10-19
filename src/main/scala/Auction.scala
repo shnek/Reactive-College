@@ -10,7 +10,7 @@ class Auction extends Actor{
   var currentPrice = 0 : BigInt
   var buyer = self
 
-  system.scheduler.scheduleOnce(10 second){
+  system.scheduler.scheduleOnce(10 seconds){
     self ! BidTimer
   }
 
@@ -22,7 +22,7 @@ class Auction extends Actor{
     }
     case Bid(amount) => sender ! Current(currentPrice, buyer)
     case BidTimer => {
-      system.scheduler.scheduleOnce(10 second){
+      system.scheduler.scheduleOnce(5 seconds){
         self ! DeleteTimer
       }
       context become Ignored
@@ -38,7 +38,7 @@ class Auction extends Actor{
     case Bid(amount) => sender ! Current(currentPrice, buyer)
     case BidTimer => {
 
-      system.scheduler.scheduleOnce(10 second){
+      system.scheduler.scheduleOnce(10 seconds){
         buyer ! AuctionDone(buyer, currentPrice)
         self ! DeleteTimer
       }
@@ -52,7 +52,7 @@ class Auction extends Actor{
       currentPrice = amount
       buyer ! Current(amount, sender)
       buyer = sender
-      system.scheduler.scheduleOnce(10 second){
+      system.scheduler.scheduleOnce(10 seconds){
         self ! BidTimer
       }
       context become Activated
@@ -60,13 +60,13 @@ class Auction extends Actor{
     case Bid(amount) => sender ! Current(currentPrice, buyer)
 
     case DeleteTimer => {
-      context.system.terminate
+      context stop self
     }
   }
 
   def Sold : Receive = LoggingReceive {
     case DeleteTimer => {
-      context.system.terminate
+      context stop self
     }
   }
 
