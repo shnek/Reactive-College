@@ -1,33 +1,30 @@
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.event.LoggingReceive
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
 
 
 case object Start
 
-class Buyer(money: BigInt, auctions: List[ActorRef]) extends Actor {
+class Buyer(money : BigInt, items: List[String]) extends Actor {
 
   import Message._
-  val system = akka.actor.ActorSystem("system")
-  import system.dispatcher
-  val auction = auctions(0)
   var current = 1: BigInt
 
+  val system = ActorSystem("Auctions")
+  val AuctionSearch = context.actorSelection("/user/auctionSearch")
+  AuctionSearch ! GetAuctions(items)
+
   override def receive = {
-    case Start => {
-      auction ! Bid(current)
-    }
-    case Current(amount, buyer) if(buyer != self) => {
-      current = amount + 1
-      if (current <= money) sender ! Bid(current)
-    }
+    case auctions: List[ActorRef] => auctions.foreach(auction => auction ! Bid(current))
+
+    case Current(amount, buyer) if(buyer != self) =>
+      current = amount + 1; if (current <= money) sender ! Bid(current)
+
     case Current(amount, buyer) => {}
 
     case AuctionDone(winner, amount) if(winner == self) => {
-      println(self + " won for " + amount)
+      println(self + ": I won for " + amount)
     }
   }
 
@@ -37,15 +34,14 @@ class Buyer(money: BigInt, auctions: List[ActorRef]) extends Actor {
 object Main extends App {
   val system = ActorSystem("Auctions")
 
-  val auctions : List[ActorRef] = List(3,2).map(
-    value => system.actorOf(Props(classOf[Auction]), "auction" + value)
-  )
+  system.actorOf(Props[AuctionSearch], "auctionSearch")
+
+  system.actorOf(Props(classOf[Seller], List("Audi_A6", "BMW_M5")))
+
 
   val buyers = List(40,50).map(
-    value => system.actorOf(Props(classOf[Buyer], BigInt(value), auctions), "buyer" + value)
+    value => system.actorOf(Props(classOf[Buyer], BigInt(value), List("BMW")))
   )
-
-  buyers.foreach(ActorRef => ActorRef ! Start)
 
   Await.result(system.whenTerminated, Duration.Inf)
 }

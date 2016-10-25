@@ -18,7 +18,7 @@ case class AuctionData(buyer: ActorRef, currentPrice: BigInt) extends Data
 
 case object Uninitialized extends Data
 
-class Auction extends FSM[State, Data] {
+class Auction(seller : ActorRef) extends FSM[State, Data] {
 
   import Message._
 
@@ -48,6 +48,7 @@ class Auction extends FSM[State, Data] {
     }
     case Event(BidTimer, AuctionData(buyer, currentPrice)) => {
       buyer ! AuctionDone(buyer, currentPrice)
+      seller ! AuctionDone(buyer, currentPrice)
       goto(Sold)
     }
     case Event(DeleteTimer, _) => stay
@@ -76,26 +77,3 @@ class Auction extends FSM[State, Data] {
 }
 
 
-object Message {
-
-  //inside auction messages:
-
-  case object BidTimer
-
-  case object DeleteTimer
-
-  //buyer to auction messages:
-
-  final case class Bid(amount: BigInt) {
-    require(amount > 0)
-  }
-
-  //auction to buyer messages:
-
-  final case class Current(amount: BigInt, buyer: ActorRef) {
-    require(amount > 0)
-  }
-
-  final case class AuctionDone(winner: ActorRef, amount: BigInt)
-
-}
