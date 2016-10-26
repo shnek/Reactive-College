@@ -8,7 +8,7 @@ class Seller(auctions: List[String]) extends Actor{
   val AuctionSearch = context.actorSelection("/user/auctionSearch")
   auctions.foreach(auction => {
     AuctionSearch ! RegisterAuction(
-      context.actorOf(Props(classOf[Auction], self), auction)
+      context.actorOf(Props[Auction], auction)
     )
   })
 
