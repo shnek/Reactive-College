@@ -10,15 +10,24 @@ class AuctionTest extends TestKit(ActorSystem("Auctions"))
     system.terminate
   }
 
-  "bidding an auction works" in {
+  "auctions stats created" in {
     val seller = system.actorOf(Props(classOf[Seller], List()))
     val fsm = TestFSMRef(new Auction())
 
     val mustBeTypedProperly: TestActorRef[Auction] = fsm
 
     assert(fsm.stateName == Created)
+  }
+
+  "bidding an auction moves to activated" in {
+    val seller = system.actorOf(Props(classOf[Seller], List()))
+    val fsm = TestFSMRef(new Auction())
+
+    val mustBeTypedProperly: TestActorRef[Auction] = fsm
+
     fsm ! Bid(BigInt(1))
     assert(fsm.stateName == Activated)
   }
+
 
 }
