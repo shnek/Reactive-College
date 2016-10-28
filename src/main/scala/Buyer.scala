@@ -2,6 +2,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 case object Start
@@ -11,10 +12,14 @@ class Buyer(money : BigInt, items: List[String]) extends Actor {
   import Message._
   var current = 1: BigInt
 
+
+
   val system = ActorSystem("Auctions")
   val AuctionSearch = context.actorSelection("/user/auctionSearch")
-  system.scheduler.scheduleOnce(1 seconds, self, "Start")
 
+  system.scheduler.scheduleOnce(1 second){
+    self ! "Start"
+  }
 
   override def receive = {
     case "Start" => AuctionSearch ! GetAuctions(items)
