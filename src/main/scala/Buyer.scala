@@ -1,7 +1,7 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem}
 
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 
 
 case object Start
@@ -13,10 +13,12 @@ class Buyer(money : BigInt, items: List[String]) extends Actor {
 
   val system = ActorSystem("Auctions")
   val AuctionSearch = context.actorSelection("/user/auctionSearch")
-  AuctionSearch ! GetAuctions(items)
+  system.scheduler.scheduleOnce(1 seconds, self, "Start")
+
 
   override def receive = {
-    case auctions: List[ActorRef] => auctions.foreach(auction => auction ! Bid(current))
+    case "Start" => AuctionSearch ! GetAuctions(items)
+    case auctions: List[ActorRef] => auctions.foreach(auction => {println(auction.path); auction ! Bid(current)})
 
     case Current(amount, buyer) if(buyer != self) =>
       current = amount + 1; if (current <= money) sender ! Bid(current)
