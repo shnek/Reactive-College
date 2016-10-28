@@ -1,33 +1,47 @@
-import akka.actor.{ActorRef, FSM}
+import akka.actor.{ActorRef, actorRef2Scala}
+import akka.persistence.fsm.PersistentFSM.FSMState
+import akka.persistence.fsm._
 
 import scala.concurrent.duration._
+import scala.reflect.{ClassTag, _}
 
-sealed trait State
 
-case object Created extends State
+sealed trait State extends FSMState
 
-case object Activated extends State
+case object Created extends State {
+  override def identifier: String = "Created"
+}
 
-case object Ignored extends State
+case object Activated extends State {
+  override def identifier: String = "Activated"
+}
 
-case object Sold extends State
+case object Ignored extends State {
+  override def identifier: String = "Ignored"
+}
+
+case object Sold extends State {
+  override def identifier: String = "Sold"
+}
 
 sealed trait Data
-
 case class AuctionData(buyer: ActorRef, currentPrice: BigInt) extends Data
 
-case object Uninitialized extends Data
+sealed trait DomainEvent
+case class ChangeData(actor: ActorRef, amount: BigInt) extends DomainEvent
 
-class Auction extends FSM[State, Data] {
+
+class Auction extends PersistentFSM[State, Data, DomainEvent] {
+
+  override def persistenceId = "auction-fsm-id-1"
+  override def domainEventClassTag: ClassTag[DomainEvent] = classTag[DomainEvent]
 
   import Message._
-
   startWith(Created, AuctionData(self, 0))
-
 
   when(Created) {
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
-      goto(Activated) using AuctionData(sender, amount)
+      goto(Activated) applying ChangeData(sender, amount) replying AuctionData(sender, amount)
     }
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount <= currentPrice => {
       sender ! Current(currentPrice, buyer)
@@ -37,10 +51,11 @@ class Auction extends FSM[State, Data] {
       goto(Ignored)
     }
   }
+
   when(Activated) {
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
       buyer ! Current(amount, sender)
-      stay using AuctionData(sender, amount)
+      stay applying ChangeData(sender, amount)
     }
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount <= currentPrice => {
       sender ! Current(currentPrice, buyer)
@@ -57,7 +72,7 @@ class Auction extends FSM[State, Data] {
   when(Ignored) {
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) if amount > currentPrice => {
       buyer ! Current(amount, sender)
-      goto(Activated) using AuctionData(sender, amount)
+      goto(Activated) applying ChangeData(sender, amount)
     }
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) => sender ! Current(currentPrice, buyer); stay
     case Event(DeleteTimer, _) => println("Auction is dead!"); stop
@@ -67,13 +82,17 @@ class Auction extends FSM[State, Data] {
   }
 
   onTransition {
-    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds)
-    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds)
-    case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds)
-    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer")
+    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds); saveStateSnapshot()
+    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds); saveStateSnapshot()
+    case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds); saveStateSnapshot()
+    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer"); saveStateSnapshot()
   }
 
-  initialize()
+  override def applyEvent(event: DomainEvent, currentData: Data): Data = {
+    event match {
+      case ChangeData(sender, amount) => AuctionData.apply(sender, amount)
+    }
+  }
 }
 
 
