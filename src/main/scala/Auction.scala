@@ -35,6 +35,8 @@ class Auction extends PersistentFSM[State, Data, DomainEvent] {
 
   override def persistenceId = "auction-fsm-id-1"
   override def domainEventClassTag: ClassTag[DomainEvent] = classTag[DomainEvent]
+  val notifier = context.actorSelection("/user/notifier")
+
 
   import Message._
   startWith(Created, AuctionData(self, 0))
@@ -91,7 +93,7 @@ class Auction extends PersistentFSM[State, Data, DomainEvent] {
   override def applyEvent(event: DomainEvent, currentData: Data): Data = {
     event match {
       case ChangeData(sender, amount) => {
-        println(sender + " is bidding!")
+        notifier ! Notify(self.path.name, sender.path.name, amount)
         AuctionData.apply(sender, amount)
       }
     }

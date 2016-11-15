@@ -26,4 +26,6 @@ object Message {
   final case class RegisterAuction(auctionRef: ActorRef)
 
   final case class GetAuctions(names: List[String])
+
+  final case class Notify(title: String, buyer: String, price: BigInt)
 }
