@@ -2,7 +2,6 @@ import Message.{GetAuctions, RegisterAuction}
 import akka.actor.{Actor, ActorRef, ActorSystem}
 
 class AuctionSearch extends Actor{
-  val system = ActorSystem("Auctions")
   var auctions = List[ActorRef]()
 
   override def receive: Receive = {

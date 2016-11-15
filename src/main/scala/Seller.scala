@@ -1,9 +1,8 @@
 
 import Message.{AuctionDone, RegisterAuction}
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, Props}
 
 class Seller(auctions: List[String]) extends Actor{
-  val system = ActorSystem("Auctions")
 
   val AuctionSearch = context.actorSelection("/user/auctionSearch")
   auctions.foreach(auction => {

@@ -82,15 +82,18 @@ class Auction extends PersistentFSM[State, Data, DomainEvent] {
   }
 
   onTransition {
-    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds); saveStateSnapshot()
-    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds); saveStateSnapshot()
-    case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds); saveStateSnapshot()
-    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer"); saveStateSnapshot()
+    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds);
+    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds);
+    case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds);
+    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer");
   }
 
   override def applyEvent(event: DomainEvent, currentData: Data): Data = {
     event match {
-      case ChangeData(sender, amount) => AuctionData.apply(sender, amount)
+      case ChangeData(sender, amount) => {
+        println(sender + " is bidding!")
+        AuctionData.apply(sender, amount)
+      }
     }
   }
 }
