@@ -1,13 +1,25 @@
 import Message.Notify
-import akka.actor.Actor
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor.{Actor, ActorRef, OneForOneStrategy}
 
 
 
 class Notifier extends Actor {
 
-  val remote = context.actorSelection("akka.tcp://Publisher@127.0.0.1:2553/user/auctionpublisher")
+  import NotifierRequest._
+  var pendingWorkers = Map[ActorRef, ActorRef]()
 
-  override def receive: Receive = {
-    case Notify(title, buyer, price) => remote ! Notify(title, buyer, price)
+
+  override val supervisorStrategy = OneForOneStrategy(loggingEnabled = false){
+    case e =>
+      println("Something went wrong: " + e.getMessage)
+      Stop
   }
+  override def receive: Receive = {
+    case Notify(title, buyer, price) =>
+      val worker = context.actorOf(NotifierRequest.props(Notify(title, buyer, price)))
+      pendingWorkers += worker -> sender()
+    case "Ok" => {}
+  }
+
 }
