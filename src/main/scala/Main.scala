@@ -5,8 +5,30 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object Main extends App {
-  val config = ConfigFactory.load()
+//  val config = ConfigFactory.load()
+//
+//
+//  val serversystem = ActorSystem("Auctions", config.getConfig("serverapp").withFallback(config))
+//  val remotesystem = ActorSystem("Publisher", config.getConfig("clientapp").withFallback(config))
+//
+//  serversystem.actorOf(Props[MasterSearch], "masterSearch")
+//  serversystem.actorOf(Props[Notifier], "notifier")
+//
+//  serversystem.actorOf(Props(classOf[Seller], List("Audi_A6", "BMW_M5")))
+//
+//  remotesystem.actorOf(Props[AuctionPublisher], "auctionpublisher")
+//
+//
+//  val buyers = List(40,50).map(
+//    value => serversystem.actorOf(Props(classOf[Buyer], BigInt(value), List("BMW")))
+//  )
+//  import serversystem.dispatcher
+//  buyers.foreach(buyer =>
+//    serversystem.scheduler.scheduleOnce(1 second, buyer, "Start")
+//  )
 
+
+  val config = ConfigFactory.load()
 
   val serversystem = ActorSystem("Auctions", config.getConfig("serverapp").withFallback(config))
   val remotesystem = ActorSystem("Publisher", config.getConfig("clientapp").withFallback(config))
@@ -14,17 +36,9 @@ object Main extends App {
   serversystem.actorOf(Props[MasterSearch], "masterSearch")
   serversystem.actorOf(Props[Notifier], "notifier")
 
-  serversystem.actorOf(Props(classOf[Seller], List("Audi_A6", "BMW_M5")))
+  val helper = serversystem.actorOf(Props[TestHelper])
 
-  remotesystem.actorOf(Props[AuctionPublisher], "auctionpublisher")
+  helper ! "start"
 
-
-  val buyers = List(40,50).map(
-    value => serversystem.actorOf(Props(classOf[Buyer], BigInt(value), List("BMW")))
-  )
-  import serversystem.dispatcher
-  buyers.foreach(buyer =>
-    serversystem.scheduler.scheduleOnce(1 second, buyer, "Start")
-  )
   Await.result(serversystem.whenTerminated, Duration.Inf)
 }
