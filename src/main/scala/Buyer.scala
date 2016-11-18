@@ -1,14 +1,14 @@
 import akka.actor.{Actor, ActorRef}
 
 
-case object Start
+
 
 class Buyer(money : BigInt, items: List[String]) extends Actor {
 
   import Message._
   var current = 1: BigInt
 
-  val AuctionSearch = context.actorSelection("/user/auctionSearch")
+  val AuctionSearch = context.actorSelection("/user/masterSearch")
 
   override def receive = {
     case "Start" => println("actor starts bidding"); AuctionSearch ! GetAuctions(items)

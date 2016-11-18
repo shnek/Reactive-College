@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorRef, Props}
 
 class Seller(auctions: List[String]) extends Actor{
 
-  val AuctionSearch = context.actorSelection("/user/auctionSearch")
+  val AuctionSearch = context.actorSelection("/user/masterSearch")
   auctions.foreach(auction => {
     AuctionSearch ! RegisterAuction(
       context.actorOf(Props[Auction], auction)

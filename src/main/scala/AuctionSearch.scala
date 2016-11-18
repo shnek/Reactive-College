@@ -1,6 +1,7 @@
 import Message.{GetAuctions, RegisterAuction}
 import akka.actor.{Actor, ActorRef, ActorSystem}
 
+
 class AuctionSearch extends Actor{
   var auctions = List[ActorRef]()
 

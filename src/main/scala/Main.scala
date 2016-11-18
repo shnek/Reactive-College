@@ -11,7 +11,7 @@ object Main extends App {
   val serversystem = ActorSystem("Auctions", config.getConfig("serverapp").withFallback(config))
   val remotesystem = ActorSystem("Publisher", config.getConfig("clientapp").withFallback(config))
 
-  serversystem.actorOf(Props[AuctionSearch], "auctionSearch")
+  serversystem.actorOf(Props[MasterSearch], "masterSearch")
   serversystem.actorOf(Props[Notifier], "notifier")
 
   serversystem.actorOf(Props(classOf[Seller], List("Audi_A6", "BMW_M5")))
