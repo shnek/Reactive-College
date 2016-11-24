@@ -1,7 +1,10 @@
 import MasterSearch.Terminated
+import Message.GetAuctions
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
-import akka.routing.{ActorRefRoutee, BroadcastRoutingLogic, RoundRobinRoutingLogic, Router}
+import akka.routing._
+
+import scala.concurrent.duration._
 
 
 object MasterSearch {
@@ -22,15 +25,15 @@ class MasterSearch extends Actor with ActorLogging {
   }
 
   var roundRRouter = {
-    Router(RoundRobinRoutingLogic(), routees)
+    Router(ScatterGatherFirstCompletedRoutingLogic(1000 seconds), routees)
   }
 
   def receive = LoggingReceive {
     case register: Message.RegisterAuction =>
       broadcastRouter.route(register, sender())
 
-    case search: Message.GetAuctions =>
-      roundRRouter.route(search, sender())
+    case GetAuctions(list) =>
+      roundRRouter.route(GetAuctions(list), sender())
 
     case Terminated(a) =>
       broadcastRouter= broadcastRouter.removeRoutee(a)

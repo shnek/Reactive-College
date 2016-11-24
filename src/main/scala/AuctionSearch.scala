@@ -10,13 +10,15 @@ class AuctionSearch extends Actor{
       auctions ::= auctionRef
     }
     case GetAuctions(names) => {
-      sender ! auctions.filter(
+      val filtered = auctions.filter(
         (auction) => {
           names.map(
             (n) => auction.path.name.contains(n)
           ).reduce((a,b) => a || b)
         }
       )
+//      println("Response: " + filtered)
+      sender ! filtered
     }
   }
 }

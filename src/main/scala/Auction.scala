@@ -33,7 +33,7 @@ case class ChangeData(actor: ActorRef, amount: BigInt) extends DomainEvent
 
 class Auction extends PersistentFSM[State, Data, DomainEvent] {
 
-  override def persistenceId = "auction-fsm-id-1"
+  override def persistenceId = "auction-fsm-id-2"
   override def domainEventClassTag: ClassTag[DomainEvent] = classTag[DomainEvent]
   val notifier = context.actorSelection("/user/notifier")
 
@@ -77,17 +77,19 @@ class Auction extends PersistentFSM[State, Data, DomainEvent] {
       goto(Activated) applying ChangeData(sender, amount)
     }
     case Event(Bid(amount), AuctionData(buyer, currentPrice)) => sender ! Current(currentPrice, buyer); stay
-    case Event(DeleteTimer, _) => println("Auction is dead!"); stop
+    case Event(DeleteTimer, _) =>
+//      println("Auction is dead!");
+      stop
   }
   when(Sold) {
     case Event(DeleteTimer, _) => println("Auction is sold!"); stop
   }
 
   onTransition {
-    case x -> Created => setTimer("BidTimer", BidTimer, 10 seconds);
-    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 5 seconds);
+    case x -> Created => setTimer("BidTimer", BidTimer, 50 seconds);
+    case Created -> Ignored => setTimer("DeleteTimer", DeleteTimer, 50 seconds);
     case Activated -> Sold => setTimer("DeleteTimer", DeleteTimer, 10 seconds);
-    case Ignored -> Created => setTimer("BidTimer", BidTimer, 10 seconds); cancelTimer("DeleteTimer");
+    case Ignored -> Created => setTimer("BidTimer", BidTimer, 50 seconds); cancelTimer("DeleteTimer");
   }
 
   override def applyEvent(event: DomainEvent, currentData: Data): Data = {

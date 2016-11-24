@@ -44,6 +44,6 @@ class TestHelper extends Actor{
     case "startBuyer" =>
       println("Starting test")
       t0 = System.nanoTime()
-      List.range(0, 10000).foreach(_ => AuctionSearch ! GetAuctions(List("none")))
+      List.range(0, 10050).foreach(_ => AuctionSearch ! GetAuctions(List("thing")))
   }
 }
